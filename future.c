@@ -7,28 +7,78 @@
 
 struct sFuture {
     void* rValue;
-    pthread_mutex_t mutex;
-    pthread_cond_t mutex_cond;
-    pthread_t thread;
+    pthread_mutex_t _mutex;
+    pthread_cond_t _mutex_cond;
+    pthread_t _thread;
+};
+
+struct sFutureTarget {
+    struct sFuture* future;
+    void* (*func)(void*);
+    void* args;
 };
 
 
-Future* async(void* func, void* arg) {
-    // TODO this needs to wrap around the function more to handle return type correctly
-    struct sFuture* fut = malloc(sizeof(struct sFuture));
-    pthread_mutex_init(&fut->mutex, NULL);
-    pthread_cond_init(&fut->mutex_cond, NULL);
-    pthread_create(&fut->thread, NULL, func, arg);
+struct sFuture* new_future() {
+    struct sFuture* future = malloc(sizeof(struct sFuture));
+    future->rValue = NULL;
+    pthread_mutex_init(&future->_mutex, NULL);
+    pthread_cond_init(&future->_mutex_cond, NULL);
 
-    return fut;
+    return future;
 }
 
-void* get(Future*) {
-    // TODO wait until the condt had been changed
-}
+void* get_future(Future* f) {
+    if (f == NULL) return NULL;
 
-void del(Future* fut) {
-    if(fut != NULL) {
-        free(fut);
+    pthread_mutex_lock(&f->_mutex);
+    while (f->rValue == NULL) {
+        pthread_cond_wait(&f->_mutex_cond, &f->_mutex);
     }
+    pthread_mutex_unlock(&f->_mutex);
+
+    return f->rValue;
 }
+
+void set_future(Future* f, void* val) {
+    pthread_mutex_lock(&f->_mutex);
+    f->rValue = val;
+    pthread_cond_signal(&f->_mutex_cond);
+    pthread_mutex_unlock(&f->_mutex);
+}
+
+void del_future(Future* f) {
+    free(f);
+}
+
+void* check_future(Future* f) {
+    if (f == NULL) return NULL;
+
+    return f->rValue;
+}
+
+
+void thread_runner(void* arg) {
+    struct sFutureTarget* futureTarget = arg;
+    void* rValue = futureTarget->func(futureTarget->args);
+
+    set_future(futureTarget->future, rValue);
+
+    free(futureTarget);
+}
+
+
+Future* async(void* (*func)(void*), void* args) {
+    struct sFutureTarget* futureTarget = malloc(sizeof(struct sFutureTarget));
+    futureTarget->func = func;
+    futureTarget->args = args;
+
+    struct sFuture* future = new_future();
+
+    futureTarget->future = future;
+
+    pthread_create(&future->_thread, NULL, thread_runner, futureTarget);
+
+    return future;
+}
+
