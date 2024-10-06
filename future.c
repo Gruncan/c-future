@@ -48,6 +48,8 @@ void set_future(Future* f, void* val) {
 }
 
 void del_future(Future* f) {
+    pthread_cond_destroy(&f->_mutex_cond);
+    pthread_mutex_destroy(&f->_mutex);
     free(f);
 }
 

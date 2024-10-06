@@ -26,7 +26,7 @@ int main() {
     printf("Check 1: %p\n", check_future(f));
     sleep(1);
     printf("Check 2: %p\n", check_future(f));
-    sleep(1);
+    sleep(7);
 
     int* v = get_future(f);
     printf("Address %p\n", v);
