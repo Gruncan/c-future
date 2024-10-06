@@ -43,8 +43,9 @@ void* get_future(Future* f) {
 void set_future(Future* f, void* val) {
     pthread_mutex_lock(&f->_mutex);
     f->rValue = val;
-    pthread_cond_signal(&f->_mutex_cond);
     pthread_mutex_unlock(&f->_mutex);
+    pthread_cond_signal(&f->_mutex_cond);
+
 }
 
 void del_future(Future* f) {
